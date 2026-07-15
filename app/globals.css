@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Default GlobeTheme tokens (PRD §11). These are the fallback palette; the
+ * FlagGlobe `theme` prop writes per-instance overrides onto the component root
+ * as the same custom properties (see theme.ts), so nothing here is hardcoded in
+ * component logic.
+ *
+ *   --globe-bg     clean cool-paper stage gradient base
+ *   --globe-ocean  base sphere
+ *   --globe-land   continents
+ *   --globe-accent selection reticle + active UI (copper — the one risk)
+ *   --globe-ink / --globe-muted  text
+ */
+:root {
+  --globe-bg: #eef1f5;
+  --globe-bg-2: #dfe4ec;
+  --globe-ocean: #0b2038;
+  --globe-ocean-2: #061422;
+  --globe-land: #16375c;
+  --globe-accent: #c0703a;
+  --globe-graticule: #4d6a86;
+  --globe-ink: #0d1622;
+  --globe-muted: #5b6b7d;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  color: var(--globe-ink);
+  background: var(--globe-bg);
+  font-family: var(--font-display), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* New join feed item slides + fades in. */
+@keyframes joinFeedIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.join-feed-item {
+  animation: joinFeedIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/*
+ * Global reduced-motion guard. The FlagGlobe also honours this in JS (no
+ * auto-rotate / float, focus snaps — FR-13), but this covers any CSS motion.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
