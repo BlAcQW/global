@@ -3,8 +3,17 @@ import path from "node:path";
 import { order } from "@/components/flag-globe/data/countries";
 import type { Quality, Slug } from "@/components/flag-globe/types";
 import { kvEnabled, kvGet, kvSet } from "./kv";
+import { mongoEnabled, getDb } from "./mongo";
 
 const KV_KEY = "globe:config";
+const MONGO_COLLECTION = "settings";
+const MONGO_DOC_ID = "config";
+
+interface ConfigDoc {
+  _id: string;
+  value: GlobeConfig;
+  updatedAt: Date;
+}
 
 /** Thrown when there is no writable persistence (e.g. serverless w/o a KV store). */
 export class ConfigPersistenceError extends Error {}
@@ -116,6 +125,13 @@ export function sanitizeConfig(input: unknown): GlobeConfig {
  */
 export async function readConfig(): Promise<GlobeConfig> {
   try {
+    if (mongoEnabled) {
+      const db = await getDb();
+      const doc = await db
+        .collection<ConfigDoc>(MONGO_COLLECTION)
+        .findOne({ _id: MONGO_DOC_ID });
+      return doc?.value ? sanitizeConfig(doc.value) : DEFAULT_CONFIG;
+    }
     if (kvEnabled) {
       const raw = await kvGet(KV_KEY);
       return raw ? sanitizeConfig(JSON.parse(raw)) : DEFAULT_CONFIG;
@@ -137,6 +153,22 @@ export async function readConfig(): Promise<GlobeConfig> {
  */
 export async function writeConfig(input: unknown): Promise<GlobeConfig> {
   const clean = sanitizeConfig(input);
+  if (mongoEnabled) {
+    try {
+      const db = await getDb();
+      await db.collection<ConfigDoc>(MONGO_COLLECTION).updateOne(
+        { _id: MONGO_DOC_ID },
+        { $set: { value: clean, updatedAt: new Date() } },
+        { upsert: true }
+      );
+      return clean;
+    } catch (err) {
+      throw new ConfigPersistenceError(
+        "Could not save to the database. Check DB_URL and the MongoDB IP allowlist.",
+        { cause: err }
+      );
+    }
+  }
   if (kvEnabled) {
     await kvSet(KV_KEY, JSON.stringify(clean));
     return clean;

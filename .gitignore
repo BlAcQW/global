@@ -19,7 +19,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
+# local env files (never commit secrets — DB_URL, tokens, ADMIN_PASSWORD)
+.env
+.env.*
 .env*.local
 
 # runtime admin config (edited via /admin, machine-local state)
