@@ -25,6 +25,24 @@ npm run dev         # http://localhost:3000
   `data/globe-config.json` (machine-local, gitignored) and apply to every visitor on
   the next load.
 
+### Deploying to Vercel (persistence)
+
+Vercel runs the app on a **read-only serverless filesystem**, so the default
+`data/globe-config.json` file store can't be written there — saving from `/admin`
+would fail. Pick one:
+
+1. **KV store (recommended — enables admin saving in prod).** In the Vercel
+   dashboard → **Storage** → create an **Upstash Redis** (or KV) store and
+   **connect it to the project**. That injects `KV_REST_API_URL` +
+   `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` / `_TOKEN`). Redeploy — the app
+   auto-detects them and persists config to KV. No code changes needed.
+2. **Static config via env var (no store, no admin saving).** Set a `GLOBE_CONFIG`
+   environment variable to a JSON blob matching `GlobeConfig` (hub, accent, …). The
+   landing reads it each request; edit it in the Vercel dashboard + redeploy.
+
+Also set **`ADMIN_PASSWORD`** in the Vercel project env vars. On a self-hosted node
+server none of this is needed — the filesystem store just works.
+
 ### Feeding real join events
 
 `POST /api/join` records a real attendee; the globe polls and animates it live:

@@ -2,6 +2,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { order } from "@/components/flag-globe/data/countries";
 import type { Quality, Slug } from "@/components/flag-globe/types";
+import { kvEnabled, kvGet, kvSet } from "./kv";
+
+const KV_KEY = "globe:config";
+
+/** Thrown when there is no writable persistence (e.g. serverless w/o a KV store). */
+export class ConfigPersistenceError extends Error {}
 
 /**
  * Server-side persisted configuration for the live-seminar globe. Edited in
@@ -101,9 +107,22 @@ export function sanitizeConfig(input: unknown): GlobeConfig {
   };
 }
 
-/** Read the saved config; returns defaults if the file is missing or invalid. */
+/**
+ * Read the saved config. Order of precedence:
+ *   1. KV store (serverless-friendly; used on Vercel when connected)
+ *   2. GLOBE_CONFIG env var (a static JSON override — no store needed)
+ *   3. data/globe-config.json on disk (self-hosted node server)
+ * Falls back to defaults if none is present or parsing fails.
+ */
 export async function readConfig(): Promise<GlobeConfig> {
   try {
+    if (kvEnabled) {
+      const raw = await kvGet(KV_KEY);
+      return raw ? sanitizeConfig(JSON.parse(raw)) : DEFAULT_CONFIG;
+    }
+    if (process.env.GLOBE_CONFIG) {
+      return sanitizeConfig(JSON.parse(process.env.GLOBE_CONFIG));
+    }
     const raw = await fs.readFile(CONFIG_PATH, "utf8");
     return sanitizeConfig(JSON.parse(raw));
   } catch {
@@ -111,10 +130,27 @@ export async function readConfig(): Promise<GlobeConfig> {
   }
 }
 
-/** Validate then persist the config; returns the sanitized value that was written. */
+/**
+ * Validate then persist the config; returns the sanitized value that was written.
+ * Uses KV when connected (works on Vercel), else the local filesystem. Throws
+ * ConfigPersistenceError when neither is writable (e.g. serverless without KV).
+ */
 export async function writeConfig(input: unknown): Promise<GlobeConfig> {
   const clean = sanitizeConfig(input);
-  await fs.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
-  await fs.writeFile(CONFIG_PATH, JSON.stringify(clean, null, 2), "utf8");
-  return clean;
+  if (kvEnabled) {
+    await kvSet(KV_KEY, JSON.stringify(clean));
+    return clean;
+  }
+  try {
+    await fs.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
+    await fs.writeFile(CONFIG_PATH, JSON.stringify(clean, null, 2), "utf8");
+    return clean;
+  } catch (err) {
+    // Serverless filesystems are read-only — surface a helpful message.
+    throw new ConfigPersistenceError(
+      "No writable storage. On Vercel, connect a KV store (Upstash Redis) so " +
+        "settings can be saved. See README → Deploying to Vercel.",
+      { cause: err }
+    );
+  }
 }

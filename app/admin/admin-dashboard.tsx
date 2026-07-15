@@ -24,6 +24,7 @@ export function AdminDashboard({ initialConfig }: { initialConfig: GlobeConfig }
   const [saved, setSaved] = useState<GlobeConfig>(initialConfig);
   const [draft, setDraft] = useState<GlobeConfig>(initialConfig);
   const [status, setStatus] = useState<Status>("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const dirty = useMemo(
     () => JSON.stringify(draft) !== JSON.stringify(saved),
@@ -49,18 +50,27 @@ export function AdminDashboard({ initialConfig }: { initialConfig: GlobeConfig }
 
   async function save() {
     setStatus("saving");
+    setErrorMsg(null);
     try {
       const res = await fetch("/api/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft),
       });
-      if (!res.ok) throw new Error("save failed");
-      const { config } = (await res.json()) as { config: GlobeConfig };
-      setSaved(config);
-      setDraft(config);
+      const data = (await res.json().catch(() => ({}))) as {
+        config?: GlobeConfig;
+        error?: string;
+      };
+      if (!res.ok || !data.config) {
+        setErrorMsg(data.error ?? "Failed to save.");
+        setStatus("error");
+        return;
+      }
+      setSaved(data.config);
+      setDraft(data.config);
       setStatus("saved");
     } catch {
+      setErrorMsg("Network error while saving.");
       setStatus("error");
     }
   }
@@ -125,6 +135,17 @@ export function AdminDashboard({ initialConfig }: { initialConfig: GlobeConfig }
           </button>
         </div>
       </header>
+
+      {status === "error" && errorMsg && (
+        <div className="mx-auto max-w-[1240px] px-6 pt-4">
+          <p
+            role="alert"
+            className="rounded-lg border border-[#c0392b]/30 bg-[#c0392b]/8 px-4 py-2.5 font-mono text-[0.72rem] text-[#c0392b]"
+          >
+            {errorMsg}
+          </p>
+        </div>
+      )}
 
       <div className="mx-auto grid max-w-[1240px] grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-6">
