@@ -22,6 +22,7 @@ export function SeminarStage({ config }: { config: GlobeConfig }) {
     pool: config.pool,
     demo: config.demoJoins,
     base: config.baseAttendees,
+    end: config.endAttendees,
     reducedMotion,
   });
 

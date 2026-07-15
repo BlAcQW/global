@@ -234,18 +234,36 @@ export function AdminDashboard({ initialConfig }: { initialConfig: GlobeConfig }
                 className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 font-mono text-sm outline-none transition focus:border-[#c0703a]"
               />
             </label>
-            <label className="mb-3 block">
-              <span className="mb-1 block font-mono text-[0.64rem] uppercase tracking-wider text-[#5b6b7d]">
-                Base attendee count
-              </span>
-              <input
-                type="number"
-                min={0}
-                value={draft.baseAttendees}
-                onChange={(e) => update({ baseAttendees: Number(e.target.value) })}
-                className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 font-mono text-sm outline-none transition focus:border-[#c0703a]"
-              />
-            </label>
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="mb-1 block font-mono text-[0.64rem] uppercase tracking-wider text-[#5b6b7d]">
+                  Base count
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  value={draft.baseAttendees}
+                  onChange={(e) => update({ baseAttendees: Number(e.target.value) })}
+                  className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 font-mono text-sm outline-none transition focus:border-[#c0703a]"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block font-mono text-[0.64rem] uppercase tracking-wider text-[#5b6b7d]">
+                  End count
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  value={draft.endAttendees}
+                  onChange={(e) => update({ endAttendees: Number(e.target.value) })}
+                  className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 font-mono text-sm outline-none transition focus:border-[#c0703a]"
+                />
+              </label>
+            </div>
+            <p className="mb-3 font-mono text-[0.6rem] leading-relaxed text-[#8a97a6]">
+              Counter ramps base → end, then hovers just below end (connect/disconnect
+              churn). Set end to 0 to just count up per join.
+            </p>
             <div className="flex flex-col gap-2">
               <Toggle label="Demo joins" on={draft.demoJoins} onChange={(v) => update({ demoJoins: v })} />
               <Toggle label="Live feed" on={draft.showFeed} onChange={(v) => update({ showFeed: v })} />

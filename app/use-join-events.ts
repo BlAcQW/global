@@ -29,6 +29,8 @@ export interface UseJoinOptions {
   pool: Slug[] | "all";
   demo: boolean;
   base: number;
+  /** Target count; the counter ramps to it then hovers just below. 0 = uncapped. */
+  end: number;
   reducedMotion: boolean;
 }
 
@@ -49,6 +51,7 @@ export function useJoinEvents({
   pool,
   demo,
   base,
+  end,
   reducedMotion,
 }: UseJoinOptions): JoinState {
   const [active, setActive] = useState<JoinEvent[]>([]);
@@ -61,7 +64,42 @@ export function useJoinEvents({
   const seen = useRef<Set<string>>(new Set());
   const countrySet = useRef<Set<Slug>>(new Set());
 
-  useEffect(() => setTotal((t) => (t < base ? base : t)), [base]);
+  // Target cap: null = uncapped (count up per join, legacy behaviour).
+  const cap = end > base ? end : null;
+  const capRef = useRef(cap);
+  capRef.current = cap;
+  const reachedCap = useRef(false);
+
+  // Reset the counter when the base/target changes (e.g. admin preview edits).
+  useEffect(() => {
+    reachedCap.current = false;
+    setTotal(base);
+  }, [base, cap]);
+
+  // Ramp the count from base up to the cap, then hover just below it — small
+  // dips + recoveries so it reads like people disconnecting and reconnecting.
+  useEffect(() => {
+    if (cap == null) return;
+    const band = Math.max(4, Math.round(cap * 0.012)); // ~1.2% churn band
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      setTotal((t) => {
+        if (!reachedCap.current && t >= cap - Math.ceil(band / 3)) {
+          reachedCap.current = true;
+        }
+        if (reachedCap.current) {
+          // hover in [cap - band, cap] with a fresh random value each tick
+          return cap - Math.floor(Math.random() * (band + 1));
+        }
+        // ease toward the cap (fast at first, slowing near the top) + jitter
+        const stepUp = Math.max(1, Math.ceil((cap - t) * 0.06)) + Math.floor(Math.random() * 3);
+        return Math.min(cap, t + stepUp);
+      });
+      timer = setTimeout(tick, (reducedMotion ? 2600 : 900) + Math.random() * 700);
+    };
+    timer = setTimeout(tick, 900);
+    return () => clearTimeout(timer);
+  }, [cap, reducedMotion]);
 
   const enqueue = useCallback((country: Slug, name?: string, id?: string) => {
     const eid = id ?? crypto.randomUUID();
@@ -90,7 +128,8 @@ export function useJoinEvents({
         };
         setActive((a) => [...a, ev].slice(-14));
         setFeed((f) => [{ id: next.id, country: next.country, name: next.name }, ...f].slice(0, FEED_MAX));
-        setTotal((t) => t + 1);
+        // When a target cap is set, the ramp/churn effect owns the count.
+        if (capRef.current == null) setTotal((t) => t + 1);
         if (!countrySet.current.has(next.country)) {
           countrySet.current.add(next.country);
           setCountryCount(countrySet.current.size);

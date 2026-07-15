@@ -32,6 +32,12 @@ export interface GlobeConfig {
   seminarTitle: string;
   /** Starting attendee count (the counter builds up from here). */
   baseAttendees: number;
+  /**
+   * Target attendee count. The counter ramps from base up to here, then hovers
+   * just below it (small dips + recoveries — people disconnecting/reconnecting).
+   * Set to 0 (or ≤ base) to disable the cap and just count up per join.
+   */
+  endAttendees: number;
   /** Run the synthetic join loop so the globe looks alive without traffic. */
   demoJoins: boolean;
   /** Show the "who's joining" feed + counter overlay. */
@@ -48,6 +54,7 @@ export const DEFAULT_CONFIG: GlobeConfig = {
   pool: "all",
   seminarTitle: "Live Seminar",
   baseAttendees: 0,
+  endAttendees: 0,
   demoJoins: true,
   showFeed: true,
   autoRotate: true,
@@ -94,10 +101,12 @@ export function sanitizeConfig(input: unknown): GlobeConfig {
       ? o.seminarTitle.replace(/[<>]/g, "").slice(0, 60) || d.seminarTitle
       : d.seminarTitle;
 
-  const baseAttendees =
-    typeof o.baseAttendees === "number" && Number.isFinite(o.baseAttendees)
-      ? Math.min(10_000_000, Math.max(0, Math.floor(o.baseAttendees)))
-      : d.baseAttendees;
+  const clampCount = (v: unknown, fallback: number) =>
+    typeof v === "number" && Number.isFinite(v)
+      ? Math.min(10_000_000, Math.max(0, Math.floor(v)))
+      : fallback;
+  const baseAttendees = clampCount(o.baseAttendees, d.baseAttendees);
+  const endAttendees = clampCount(o.endAttendees, d.endAttendees);
 
   const bool = (v: unknown, fallback: boolean) =>
     typeof v === "boolean" ? v : fallback;
@@ -107,6 +116,7 @@ export function sanitizeConfig(input: unknown): GlobeConfig {
     pool,
     seminarTitle,
     baseAttendees,
+    endAttendees,
     demoJoins: bool(o.demoJoins, d.demoJoins),
     showFeed: bool(o.showFeed, d.showFeed),
     autoRotate: bool(o.autoRotate, d.autoRotate),
